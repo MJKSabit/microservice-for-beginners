@@ -1,0 +1,36 @@
+services:
+  auth:
+    build:
+      context: .
+      dockerfile: Dockerfile.auth-service
+    networks:
+      - private-domain
+  service-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.service-1
+    networks:
+      - private-domain
+  service-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.service-2
+    environment:
+      - SERVICE_1=http://service-1:3000
+    networks:
+      - private-domain
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - auth
+      - service-1
+      - service-2
+    networks:
+      - private-domain
+
+networks:
+  private-domain: {}

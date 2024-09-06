@@ -20,6 +20,6 @@ app.get("/echo", (req, res) => {
     });
 });
 
-app.listen(3001, () => {
+app.listen(3000, () => {
   console.log("Server is Running ");
 });
