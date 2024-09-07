@@ -2,60 +2,60 @@
 
 ## Microservices
 
-Microservice, a word that is often heard in the tech world. You need scalable solution? updrage to microsrevice. You need to control individual modules? upgrade to microservice. But with less amount of resources available with proper guidelines to truly implement microservice, there is unforeseen headache in all the way.
+Microservice, a word that is often heard in the tech world. You need scalable solution? Upgrade to microservice. You need to control individual modules? Upgrade to microservice. But with fewer amount of resources available with proper guidelines to truly implement microservice, there is unforeseen headache in all the way.
 
-Most of us think microservice as different backend instances running for different module. Its just tip of the iceberg. There is so much more in this architecture other than splitting the backend into diffenet parts. To harness the power of microservice, we need to think in a distributed manner, rather than the treaditional approach. It includes separation of datasource, interservice communication, managing these individual services, separation of authentication and authoriazation, and many more.
+Most of us think microservice as different backend instances running for different module. It's just tip of the iceberg. There is much more to this architecture than just splitting the backend into different parts. To harness the power of microservice, we need to think in a distributed manner, rather than the traditional approach. It includes separation of datasource, interservice communication, managing these individual services, separation of authentication and authorization, and many more.
 
-In the upcoming series of blog, I will try to explain the common problem that we faced during my time at Pridesys IT Ltd trying to implement Microservice and how approached to overcome that. In todays blog, I will try to explain the authentication and authoriazation process in microservice for smooth operation.
+In the upcoming series of blog, I will try to explain the common problems that we faced during my time at Pridesys IT Ltd. trying to implement microservice and what are the approaches we followed to overcome that. In today's blog, I will try to explain the authentication and authorization process in a microservice architecture for smooth operation.
 
 ## Auth - Authentication and Authorization
 
-One of the most common part of any application is authentication and authorization. Authentication is identifying the user who is trying to access the application and authorization is checking if the user has permission to access/modify a resource. These two processes ensures system security by contolling what is accessible by whom, and combinedly we will refer these as **auth**.
+One of the most common parts of any application is authentication and authorization. Authentication is identifying the user who is trying to access the application and authorization is checking if the user has permission to access/modify a resource. These two processes ensure system security by controlling what is accessible by whom, and combinedly we will refer these as **auth**.
 
-In monolith web architecture, there is usually a middleware/interceptor that is responsible for handling auth and maintain secured API endpoints. For example, using spring security, we might need to use filters to verify ones identity and access at each request. HTTP protocol is stateless, that is no information is preserved from one call to another. For that reason, everytime before serving a request, authenticity is verified. That is true for all kinds of authentication - Basic, Session based or Token based.
+In monolith web architecture, there is usually a middleware/interceptor that is responsible for handling auth and maintaining secured API endpoints. For example, using spring security, we might need to use filters to verify one's identity and access at each request. HTTP protocol is stateless, that is no information is preserved from one call to another. For that reason, everytime before serving a request, authenticity is verified. That is true for all kinds of authentication - Basic, Session based or Token based.
 
-In microservices, services are split up to different services. But ensuring security is common part for all of them. One might choose to add authentication handing at each services separately, but this is a very bad prectice. One of the core principle of clean coding is DRY.
+In microservice architecture, services are split up to different services. But ensuring security is a common part for all of them. One might choose to add authentication handling at each services separately, but this is a very bad practice. One of the core principle of clean coding is DRY.
 
 >  **DRY** - Don't Repeat Yourself
 
-If we need to change the implementation / refactor / fix security issues of our auth in future, we need to change code in each and every services, which is not feasable. 
+If we need to change the implementation / refactor / fix security issues of our auth in future, we need to change code in each and every services, which is not feasible. 
 
-For this reason, typically there exists atleast one service only to handle authentication & authorization. The implementation of this could be simple as basic auth or complex with many permissions and role-based authentication. But the issue that arises with this approach is how other microservices can use that auth service. 
+For this reason, typically there exists at least one service only to handle authentication and authorization. The implementation of this could be as simple as basic auth or complex with many permissions and role-based authentication. But the issue that arises with this approach is how other microservices can use that auth service. 
 
-One approach could be using REST API calls from other services to auth service to verify ones identity and access. But again, it will involve more complexity that needs to be addressed. Every microservice needs to have same kind of code for authentication. Moreover, if we use REST API call for interservice communication, there will be redundent auth checkup which will decrerease the overall performance of the system.
+One approach could be using REST API calls from other services to auth service to verify one's identity and access. But again, it will involve more complexity that needs to be addressed. Every microservice needs to have same kind of code for authentication. Moreover, if we use REST API call for interservice communication, there will be redundent authentication checks which will decrease the overall performance of the system.
 
-To mitigate thes issues, we divide our domain to two spaces - public and private; and an application gateway is used to conduct communication from public domain to private domain.
+To mitigate these issues, we divide our domain into two spaces - public and private; and an application gateway is used to conduct communication from public domain to private domain.
 
 | Add Image here demonstrating application gateway |
 | ------------------------------------------------ |
 
 ## Application Gateway
 
-Application gateway is a separate server/service that works as a firewall to enable secured access to internal services. It can also be used to limit rate for particular IP. Again, since all external communication is routed via the application gateway, it could be a good place to integrate authentication and authorization. Communication inside the private domain is trusted, so no double checking is done for interservice communication. We can also keep some service truly private without exposing that using the application gateway, and it can only be used by other services. Application gateway is acts as a reverse proxy to communicate with the exact service that is needed from outside.
+Application gateway is a separate server/service that works as a firewall to enable secured access to internal services. It can also be used to limit rate for particular IP. Again, since all external communication is routed via the application gateway, it could be a good place to integrate authentication and authorization. Communication inside the private domain is trusted, so no double checking is done for interservice communication. We can also keep some service truly private without exposing that using the application gateway, and it can only be used by other services. Application gateway acts as a reverse proxy to communicate with the exact service that is needed from outside.
 
-The idea behind the application gateway is simple, we can use our own implementation using any preferred language. One can use express.js or flask for that. But, we need to keep in mind that, all external communication is done via that application gateway. So, the server needs to handle combined load of the whole microservice. Implementation with single threaded high level language could introduce bottleneck in performance. And there could be security vulnerablities if not handled properly.
+The idea behind the application gateway is simple, we can use our own implementation using any preferred language. One can use express.js or flask for that. But, we need to keep in mind that, all external communication is done via that application gateway. So, the server needs to handle combined load of the whole microservice. Implementation with single threaded high level language could introduce bottleneck in performance. And there could be security vulnerabilities if not handled properly.
 
-For that case, it is better to use a proven application gateway, and mostly used open source implemnetation is **NGINX**.
+For that case, it is better to use a proven application gateway, and the most widely used open-source implementation is **NGINX**.
 
 ## NGINX
 
-Nginx is a web server that can also be used as a reverse proxy, load balancer, mail proxy and HTTP cache. It is highly scalable, performant and widely used as application gateway. According to [one of the blogs](https://blog.nginx.org/blog/testing-the-performance-of-nginx-and-nginx-plus-web-servers) on performace testing, one nginx instance can handle more than *500,000 requests per second* for a typical response (1-10kB) in 8-16 core CPU. To get a quick overview of NGINX, take a look at the [video by TechWorld with Nana](https://youtu.be/iInUBOVeBCc).
+Nginx is a web server that can also be used as a reverse proxy, load balancer, mail proxy and HTTP cache. It is highly scalable, performant and widely used as application gateway. According to [one of the blogs](https://blog.nginx.org/blog/testing-the-performance-of-nginx-and-nginx-plus-web-servers) on performance testing, one nginx instance can handle more than *500,000 requests per second* for a typical response (1-10kB) in 8-16 core CPU. To get a quick overview of NGINX, take a look at the [video by TechWorld with Nana](https://youtu.be/iInUBOVeBCc).
 
-In today's blog our main goal will be to use NGINX as application gatway with authentication support for a simple microservice application. It will be consisting two different parts of deployment -
+In today's blog our main goal will be to use NGINX as application gateway with authentication support for a simple microservice application. It will be consisting two different parts of deployment -
 
 1. NGINX in docker compose (covered in this blog)
 
 2. NGINX with ingress in kubernetes (next part of the blog)
 
-NGINX uses a `conf` file to configure the web server. For the docker compose, we will directly modify the configuration file ourself. In case of kubernetes, we just need to add directives in the ingress manifest, and the NGINX ingress controller will be configured automatically.
+NGINX uses a `conf` file to configure the web server. For the docker compose, we will directly modify the configuration file ourselves. In case of kubernetes, we just need to add directives in the ingress manifest, and the NGINX ingress controller will be configured automatically.
 
 Without further ado, lets dive into the implementation of microservice authentication.
 
 ## Microservices
 
-We will use two simple microservices, built with expressjs to simulate microservice along with another auth service for basic authentication.
+We will use two simple microservices, built with Express JS, to simulate microservice along with another auth service for basic authentication.
 
-Initialize a nodejs application with expressjs
+Initialize a Node JS application with Express JS
 
 ```bash
 npm init -y
@@ -66,7 +66,7 @@ Add three files for three services
 
 1. `auth.js`
    
-   There is only one endpoint `GET /validate` which checks if the user provided basic authentication password as `password`. Note that, the username is sent to the response via `User` header. Authentication endpoint can relay information to the next API endpoint via headers only, response body will not be used. Wheather a request should be allowed to pass to a secured service is determined by the response status of the validation endpoint. Only responses `2xx` with is allowed to pass on to next level. In the following case, we have sent `204` and `401` for successful and unsuccessful login attempt respectively.
+   There is only one endpoint, `GET /validate`, which checks if the user has provided basic authentication password as `password`. Note that, the username is sent to the response via `User` header. Authentication endpoint can relay information to the next API endpoint via headers only, response body will not be used. Whether a request should be allowed to pass to a secured service is determined by the response status of the validation endpoint. Only responses with `2xx` code is allowed to pass on to the next level. In the following case, we have sent `204` and `401` for successful and unsuccessful login attempts respectively.
    
    ```js
    const express = require("express");
@@ -122,7 +122,7 @@ Add three files for three services
 
 3. `service-2.js`
    
-   This service demonstrate interservice synchronous communication over HTTP, from service-2 to service-1.
+   This service demonstrates interservice synchronous communication over HTTP, from service-2 to service-1.
    
    ```js
    const express = require("express");
@@ -170,7 +170,7 @@ EXPOSE 3000
 CMD ["node", "auth.js"]
 ```
 
-In the repository, I have kept three different dockerfile to build image from:
+In the repository, I have kept three different dockerfile to build images from:
 
 ```bash
 docker build -f Dockerfile.auth-service -t auth-service .
@@ -231,9 +231,9 @@ networks:
   private-domain: {}
 ```
 
-We have created a virtual network called `private-domain` which has only exposed endpoint via the nginx service by port `3000`. All API endpoints is called using this exposed port.
+We have created a virtual network called `private-domain` which has only exposed endpoint via the nginx service by port `3000`. All API endpoints are called using this exposed port.
 
-NGINX uses a `conf` file for configuration. For our three sevices to work properly, we will use the following configuration file, saved as `nginx.conf`
+NGINX uses a `conf` file for configuration. For our three services to work properly, we will use the following configuration file, saved as `nginx.conf`
 
 ```nginx
 upstream auth {
@@ -277,7 +277,7 @@ server {
 }
 ```
 
-For a brief explaination, `upstream` sets the server location to use within the nginx configuration. We create three entries for three services. `server` block contain the configuration to nginx server with its `listen` -ing port and API endpoints for different services using `location`. Take a look at the extra slash at the end of `service-1/` or `service-2/`. This allows prefix matching instead of exact matching. So we will be able to access `/service-1/hello` without explicitly declaring it as a `location`.
+For a brief explanation, `upstream` sets the server location to use within the nginx configuration. We create three entries for three services. `server` block contains the configuration to nginx server with its `listen` -ing port and API endpoints for different services using `location`. Note at the extra slash at the end of `service-1/` or `service-2/`. This allows prefix matching instead of exact matching. So we will be able to access `/service-1/hello` without explicitly declaring it as a `location`.
 
 We have marked `/auth-validate` to be an `internal` location, it will not be accessible from outside of nginx. For `service-1` and `service-2`, we have used the `/auth-validate` endpoint to validate incoming request before passing to actual service. We have also read the header value of `User` from `auth-service` using `auth_request_set` and used that value to set `User` header before calling the actual service.
 
@@ -297,7 +297,7 @@ Directory structure for all these files:
 └── service-2.js
 ```
 
-After all these configuration is set, we can run the project using:
+After all these configuration are set, we can run the project using:
 
 ```bash
 docker compose up -d
@@ -316,14 +316,14 @@ curl -L -u admin:12345678 http://localhost:3000/service-1/hello
 
 # Ok
 curl -L -u admin:password http://localhost:3000/service-2/echo
-# 401 Unauthorized, Authentication not provided
+# 401 Unauthorized, Authentication was not provided
 curl -L http://localhost:3000/service-2/echo
 
 # 404 Not Found, Internal Service
 curl -L http://localhost:3000/auth-validate
 ```
 
-In the next part, we will deply these services in kubernetes.
+In the next part, we will deploy these services in kubernetes.
 
 ## Codebase
 
@@ -331,4 +331,4 @@ The full code can be found in this git repository.
 
 ## Credits
 
-Thanks to all my team members, Hasan Masum, Iftekhar E Mahbub Zeeon, Fardin Anam Aungon, Tamim Ehsan, Akibur Rahman and Anup Bhowmik.
+Thanks to all my team members: Hasan Masum, Iftekhar E Mahbub Zeeon, Fardin Anam Aungon, Tamim Ehsan, Akibur Rahman and Anup Bhowmik.
