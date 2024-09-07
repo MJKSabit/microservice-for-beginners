@@ -26,8 +26,7 @@ One approach could be using REST API calls from other services to auth service t
 
 To mitigate these issues, we divide our domain into two spaces - public and private; and an application gateway is used to conduct communication from public domain to private domain.
 
-| Add Image here demonstrating application gateway |
-| ------------------------------------------------ |
+![Application Gateway in Microservices](./assets/application-gateway.excalidraw.svg)
 
 ## Application Gateway
 
@@ -327,7 +326,7 @@ In the next part, we will deploy these services in kubernetes.
 
 ## Codebase
 
-The full code can be found in this git repository.
+The full code can be found in [this git repository](https://github.com/MJKSabit/microservice-for-beginners/tree/master/0-auth).
 
 ## Credits
 
