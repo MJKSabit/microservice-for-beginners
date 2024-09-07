@@ -1,4 +1,4 @@
-# Microservice Auth for Beginners
+# Microservice Auth for Beginners - 1
 
 ## Microservices
 
@@ -26,6 +26,9 @@ One approach could be using REST API calls from other services to auth service t
 
 To mitigate thes issues, we divide our domain to two spaces - public and private; and an application gateway is used to conduct communication from public domain to private domain.
 
+| Add Image here demonstrating application gateway |
+| ------------------------------------------------ |
+
 ## Application Gateway
 
 Application gateway is a separate server/service that works as a firewall to enable secured access to internal services. It can also be used to limit rate for particular IP. Again, since all external communication is routed via the application gateway, it could be a good place to integrate authentication and authorization. Communication inside the private domain is trusted, so no double checking is done for interservice communication. We can also keep some service truly private without exposing that using the application gateway, and it can only be used by other services. Application gateway is acts as a reverse proxy to communicate with the exact service that is needed from outside.
@@ -36,13 +39,13 @@ For that case, it is better to use a proven application gateway, and mostly used
 
 ## NGINX
 
-Nginx is a web server that can also be used as a reverse proxy, load balancer, mail proxy and HTTP cache. It is highly scalable, performant and widely used as application gateway. According to [one of the blogs](https://blog.nginx.org/blog/testing-the-performance-of-nginx-and-nginx-plus-web-servers) on performace testing, one nginx instance can handle more than *500,000 requests per second* for a typical response (1-10kB) in 8-16 core CPU.
+Nginx is a web server that can also be used as a reverse proxy, load balancer, mail proxy and HTTP cache. It is highly scalable, performant and widely used as application gateway. According to [one of the blogs](https://blog.nginx.org/blog/testing-the-performance-of-nginx-and-nginx-plus-web-servers) on performace testing, one nginx instance can handle more than *500,000 requests per second* for a typical response (1-10kB) in 8-16 core CPU. To get a quick overview of NGINX, take a look at the [video by TechWorld with Nana](https://youtu.be/iInUBOVeBCc).
 
-In today's blog our main goal will be to use NGINX as application gatway with authentication support for a simple microservice application. It will be consisting two different deployment -
+In today's blog our main goal will be to use NGINX as application gatway with authentication support for a simple microservice application. It will be consisting two different parts of deployment -
 
-1. NGINX in docker compose
+1. NGINX in docker compose (covered in this blog)
 
-2. NGINX with ingress in kubernetes
+2. NGINX with ingress in kubernetes (next part of the blog)
 
 NGINX uses a `conf` file to configure the web server. For the docker compose, we will directly modify the configuration file ourself. In case of kubernetes, we just need to add directives in the ingress manifest, and the NGINX ingress controller will be configured automatically.
 
@@ -63,49 +66,269 @@ Add three files for three services
 
 1. `auth.js`
    
+   There is only one endpoint `GET /validate` which checks if the user provided basic authentication password as `password`. Note that, the username is sent to the response via `User` header. Authentication endpoint can relay information to the next API endpoint via headers only, response body will not be used. Wheather a request should be allowed to pass to a secured service is determined by the response status of the validation endpoint. Only responses `2xx` with is allowed to pass on to next level. In the following case, we have sent `204` and `401` for successful and unsuccessful login attempt respectively.
+   
    ```js
    const express = require("express");
    const app = express();
    
-   function authentication(req, res, next) {
-       const authheader = req.headers.authorization;
-       console.log(req.headers);
+   app.get("/validate", (req, res) => {
+     const authheader = req.headers.authorization;
    
-       if (!authheader) {
-           let err = new Error('You are not authenticated!');
-           res.setHeader('WWW-Authenticate', 'Basic');
-           err.status = 401;
-           return next(err)
-       }
+     if (!authheader) {
+       res.setHeader("WWW-Authenticate", "Basic");
+       return res.sendStatus(401);
+     }
    
-       const auth = new Buffer.from(authheader.split(' ')[1],
-           'base64').toString().split(':');
-       const user = auth[0];
-       const pass = auth[1];
+     const [user, pass] = new Buffer.from(authheader.split(" ")[1], "base64")
+       .toString()
+       .split(":");
    
-       if (user == 'admin' && pass == 'password') {
+     if (pass !== "password") {
+       res.setHeader("WWW-Authenticate", "Basic");
+       return res.sendStatus(401);
+     }
    
-           // If Authorized user
-           next();
-       } else {
-           let err = new Error('You are not authenticated!');
-           res.setHeader('WWW-Authenticate', 'Basic');
-           err.status = 401;
-           return next(err);
-       }
+     res.setHeader("User", user);
+     res.sendStatus(204);
+   });
    
-   }
-   
-   // First step is the authentication of the client
-   app.use(authentication)
-   app.use(express.static(path.join(__dirname, 'public')));
-   
-   // Server setup
-   app.listen((3000), () => {
-       console.log("Server is Running ");
-   })
+   app.listen(3000, () => {
+     console.log("Server is Running");
+   });
    ```
 
+2. `service-1.js`
+   
+   This is a simple service that uses the user information relayed by the auth service to show different messages to admin and other users at `GET /hello` API endpoint.
+   
+   ```js
+   const express = require("express");
+   const app = express();
+   
+   app.get("/hello", (req, res) => {
+     const user = req.headers.user;
+     if (user === "admin") {
+       return res.send(`Hello, ${user}!`);
+     } else {
+       return res.send(`Welcome, ${user}!`);
+     }
+   });
+   
+   app.listen(3000, () => {
+     console.log("Server is Running");
+   });
+   ```
 
+3. `service-2.js`
+   
+   This service demonstrate interservice synchronous communication over HTTP, from service-2 to service-1.
+   
+   ```js
+   const express = require("express");
+   const app = express();
+   
+   const SERVICE_1 = process.env.SERVICE_1 || "http://localhost:3000";
+   
+   app.get("/echo", (req, res) => {
+     const headers = req.headers;
+     fetch(SERVICE_1 + "/hello", {
+       headers,
+     })
+       .then((response) => {
+         return response.text();
+       })
+       .then((text) => {
+         res.send(`[${text}]`);
+       })
+       .catch((err) => {
+         res.send("Error in fetching data from service 1");
+       });
+   });
+   
+   app.listen(3000, () => {
+     console.log("Server is Running");
+   });
+   ```
 
+We can check these servers are working perfectly by running the servers and making request with `curl`.
 
+```bash
+node service-1.js
+curl -H "User: admin" http://localhost:3000/hello
+```
+
+We can also build docker images for these three services separately, eg `Dockerfile.auth-service`:
+
+```dockerfile
+FROM node:20-alpine
+COPY . /app
+WORKDIR /app
+RUN npm i
+EXPOSE 3000
+# can be "service-1" or "service-2"
+CMD ["node", "auth.js"]
+```
+
+In the repository, I have kept three different dockerfile to build image from:
+
+```bash
+docker build -f Dockerfile.auth-service -t auth-service .
+docker build -f Dockerfile.service-1 -t service-1 .
+docker build -f Dockerfile.service-2 -t service-2 .
+```
+
+We can run these services separately by the following commands:
+
+```bash
+docker run -p 3000:3000 auth-service
+docker run -p 3001:3000 service-1
+docker run -p 3002:3000 -e SERVICE_1=http://localhost:3001 service-2
+```
+
+## Docker Compose with Private Domain
+
+For now, we have directly run our service using docker. We will now use NGINX to enable authentication for each microservices. 
+
+Docker compose for running these four services (3 microservices + 1 nginx), `docker-compose.yaml`
+
+```yaml
+services:
+  auth:
+    build:
+      context: .
+      dockerfile: Dockerfile.auth-service
+    networks:
+      - private-domain
+  service-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.service-1
+    networks:
+      - private-domain
+  service-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.service-2
+    environment:
+      - SERVICE_1=http://service-1:3000
+    networks:
+      - private-domain
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - auth
+      - service-1
+      - service-2
+    networks:
+      - private-domain
+
+networks:
+  private-domain: {}
+```
+
+We have created a virtual network called `private-domain` which has only exposed endpoint via the nginx service by port `3000`. All API endpoints is called using this exposed port.
+
+NGINX uses a `conf` file for configuration. For our three sevices to work properly, we will use the following configuration file, saved as `nginx.conf`
+
+```nginx
+upstream auth {
+    server auth:3000;
+}
+
+upstream service-1 {
+    server service-1:3000;
+}
+
+upstream service-2 {
+    server service-2:3000;
+}
+
+server {
+    listen 3000;
+    server_name localhost;
+
+    location /auth-validate {
+        internal;
+        proxy_pass http://auth/validate;
+    }
+
+    location /service-1/ {
+        auth_request /auth-validate;
+
+        auth_request_set $user $upstream_http_user;
+        proxy_set_header user $user;
+        
+        proxy_pass http://service-1/;
+    }
+
+    location /service-2/ {
+        auth_request /auth-validate;
+
+        auth_request_set $user $upstream_http_user;
+        proxy_set_header user $user;
+        
+        proxy_pass http://service-2/;
+    }
+}
+```
+
+For a brief explaination, `upstream` sets the server location to use within the nginx configuration. We create three entries for three services. `server` block contain the configuration to nginx server with its `listen` -ing port and API endpoints for different services using `location`. Take a look at the extra slash at the end of `service-1/` or `service-2/`. This allows prefix matching instead of exact matching. So we will be able to access `/service-1/hello` without explicitly declaring it as a `location`.
+
+We have marked `/auth-validate` to be an `internal` location, it will not be accessible from outside of nginx. For `service-1` and `service-2`, we have used the `/auth-validate` endpoint to validate incoming request before passing to actual service. We have also read the header value of `User` from `auth-service` using `auth_request_set` and used that value to set `User` header before calling the actual service.
+
+Directory structure for all these files:
+
+```
+0-auth
+├── Dockerfile.auth-service
+├── Dockerfile.service-1
+├── Dockerfile.service-2
+├── auth.js
+├── docker-compose.yaml
+├── nginx.conf
+├── package-lock.json
+├── package.json
+├── service-1.js
+└── service-2.js
+```
+
+After all these configuration is set, we can run the project using:
+
+```bash
+docker compose up -d
+```
+
+### Testing out the authentication
+
+We will use curl to test endpoints:
+
+```bash
+# Ok
+curl -L -u admin:password http://localhost:3000/service-1/hello
+curl -L -u user:password http://localhost:3000/service-1/hello
+# 401 Unauthorized, Password mismatch
+curl -L -u admin:12345678 http://localhost:3000/service-1/hello
+
+# Ok
+curl -L -u admin:password http://localhost:3000/service-2/echo
+# 401 Unauthorized, Authentication not provided
+curl -L http://localhost:3000/service-2/echo
+
+# 404 Not Found, Internal Service
+curl -L http://localhost:3000/auth-validate
+```
+
+In the next part, we will deply these services in kubernetes.
+
+## Codebase
+
+The full code can be found in this git repository.
+
+## Credits
+
+Thanks to all my team members, Hasan Masum, Iftekhar E Mahbub Zeeon, Fardin Anam Aungon, Tamim Ehsan, Akibur Rahman and Anup Bhowmick.
