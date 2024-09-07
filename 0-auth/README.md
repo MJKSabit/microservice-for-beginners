@@ -1,6 +1,6 @@
 # Microservice Auth for Beginners - 1
 
-## Microservices
+## Microservice Architecture
 
 Microservice, a word that is often heard in the tech world. You need scalable solution? Upgrade to microservice. You need to control individual modules? Upgrade to microservice. But with fewer amount of resources available with proper guidelines to truly implement microservice, there is unforeseen headache in all the way.
 
@@ -16,11 +16,11 @@ In monolith web architecture, there is usually a middleware/interceptor that is 
 
 In microservice architecture, services are split up to different services. But ensuring security is a common part for all of them. One might choose to add authentication handling at each services separately, but this is a very bad practice. One of the core principle of clean coding is DRY.
 
->  **DRY** - Don't Repeat Yourself
+> **DRY** - Don't Repeat Yourself
 
-If we need to change the implementation / refactor / fix security issues of our auth in future, we need to change code in each and every services, which is not feasible. 
+If we need to change the implementation / refactor / fix security issues of our auth in future, we need to change code in each and every services, which is not feasible.
 
-For this reason, typically there exists at least one service only to handle authentication and authorization. The implementation of this could be as simple as basic auth or complex with many permissions and role-based authentication. But the issue that arises with this approach is how other microservices can use that auth service. 
+For this reason, typically there exists at least one service only to handle authentication and authorization. The implementation of this could be as simple as basic auth or complex with many permissions and role-based authentication. But the issue that arises with this approach is how other microservices can use that auth service.
 
 One approach could be using REST API calls from other services to auth service to verify one's identity and access. But again, it will involve more complexity that needs to be addressed. Every microservice needs to have same kind of code for authentication. Moreover, if we use REST API call for interservice communication, there will be redundent authentication checks which will decrease the overall performance of the system.
 
@@ -30,11 +30,11 @@ To mitigate these issues, we divide our domain into two spaces - public and priv
 
 ## Application Gateway
 
-Application gateway is a separate server/service that works as a firewall to enable secured access to internal services. It can also be used to limit rate for particular IP. Again, since all external communication is routed via the application gateway, it could be a good place to integrate authentication and authorization. Communication inside the private domain is trusted, so no double checking is done for interservice communication. We can also keep some service truly private without exposing that using the application gateway, and it can only be used by other services. Application gateway acts as a reverse proxy to communicate with the exact service that is needed from outside.
+Application gateway is a separate server/service that works as a reverse proxy to enable secured access to internal services. It can also be used to limit rate for particular IP or firewall. Again, since all external communication is routed via the application gateway, it could be a good place to integrate authentication and authorization. Communication inside the private domain is trusted, so no double checking is done for interservice communication. We can also keep some service truly private without exposing that using the application gateway, and it can only be used by other services. Application gateway acts as a reverse proxy to communicate with the exact service that is needed from outside.
 
 The idea behind the application gateway is simple, we can use our own implementation using any preferred language. One can use express.js or flask for that. But, we need to keep in mind that, all external communication is done via that application gateway. So, the server needs to handle combined load of the whole microservice. Implementation with single threaded high level language could introduce bottleneck in performance. And there could be security vulnerabilities if not handled properly.
 
-For that case, it is better to use a proven application gateway, and the most widely used open-source implementation is **NGINX**.
+For that case, it is better to use a proven application gateway, and the most widely used open-source implementation is **NGINX**. Other alternatives are Apache, Traefik, Envoy, Caddy, etc.
 
 ## NGINX
 
@@ -64,9 +64,9 @@ npm i express
 Add three files for three services
 
 1. `auth.js`
-   
+
    There is only one endpoint, `GET /validate`, which checks if the user has provided basic authentication password as `password`. Note that, the username is sent to the response via `User` header. Authentication endpoint can relay information to the next API endpoint via headers only, response body will not be used. Whether a request should be allowed to pass to a secured service is determined by the response status of the validation endpoint. Only responses with `2xx` code is allowed to pass on to the next level. In the following case, we have sent `204` and `401` for successful and unsuccessful login attempts respectively.
-   
+
    ```js
    const express = require("express");
    const app = express();
@@ -98,9 +98,9 @@ Add three files for three services
    ```
 
 2. `service-1.js`
-   
+
    This is a simple service that uses the user information relayed by the auth service to show different messages to admin and other users at `GET /hello` API endpoint.
-   
+
    ```js
    const express = require("express");
    const app = express();
@@ -120,9 +120,9 @@ Add three files for three services
    ```
 
 3. `service-2.js`
-   
+
    This service demonstrates interservice synchronous communication over HTTP, from service-2 to service-1.
-   
+
    ```js
    const express = require("express");
    const app = express();
@@ -187,7 +187,7 @@ docker run -p 3002:3000 -e SERVICE_1=http://localhost:3001 service-2
 
 ## Docker Compose with Private Domain
 
-For now, we have directly run our service using docker. We will now use NGINX to enable authentication for each microservices. 
+For now, we have directly run our service using docker. We will now use NGINX to enable authentication for each microservices.
 
 Docker compose for running these four services (3 microservices + 1 nginx), `docker-compose.yaml`
 
@@ -282,7 +282,7 @@ We have marked `/auth-validate` to be an `internal` location, it will not be acc
 
 Directory structure for all these files:
 
-```
+```text
 0-auth
 ├── Dockerfile.auth-service
 ├── Dockerfile.service-1
