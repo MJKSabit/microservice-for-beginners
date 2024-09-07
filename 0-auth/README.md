@@ -331,4 +331,4 @@ The full code can be found in this git repository.
 
 ## Credits
 
-Thanks to all my team members, Hasan Masum, Iftekhar E Mahbub Zeeon, Fardin Anam Aungon, Tamim Ehsan, Akibur Rahman and Anup Bhowmick.
+Thanks to all my team members, Hasan Masum, Iftekhar E Mahbub Zeeon, Fardin Anam Aungon, Tamim Ehsan, Akibur Rahman and Anup Bhowmik.
